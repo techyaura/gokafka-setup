@@ -66,9 +66,7 @@ func main() {
 			case *kafka.Message:
 				fmt.Printf("%% Message on %s:\n%s\n",
 					e.TopicPartition, string(e.Value))
-				if e.Headers != nil {
-					fmt.Printf("%% Headers: %v\n", e.Headers)
-				}
+				commitOffset(c, topic, int(e.TopicPartition.Partition))
 			case kafka.Error:
 				fmt.Fprintf(os.Stderr, "%% Error: %v: %v\n", e.Code(), e)
 				if e.Code() == kafka.ErrAllBrokersDown {
@@ -82,4 +80,19 @@ func main() {
 
 	fmt.Printf("Closing consumer\n")
 	c.Close()
+}
+
+func commitOffset(c *kafka.Consumer, topic string, partition int) {
+	committedOffsets, err := c.Committed([]kafka.TopicPartition{{
+		Topic:     &topic,
+		Partition: int32(partition),
+	}}, 5000)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to fetch offset: %s\n", err)
+		os.Exit(1)
+	}
+
+	committedOffset := committedOffsets[0]
+
+	fmt.Printf("Committed partition %d offset: %d", committedOffset.Partition, committedOffset.Offset)
 }
